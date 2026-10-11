@@ -1,7 +1,55 @@
-.gradle/
-build/
-backend/build/
-frontend/node_modules/
-frontend/dist/
+# Environment files and local secrets (keep documented templates)
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Gradle / JVM build output
+.gradle/
+**/build/
+**/out/
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+hs_err_pid*
+replay_pid*
+
+# Node / Angular generated files
+**/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test reports and coverage
+coverage/
+*.lcov
+test-results/
+
+# IDE and editor workspace state
+.idea/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# Operating-system files
 .DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local container tooling state
+.podman/
+compose.override.yml
