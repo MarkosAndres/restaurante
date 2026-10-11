@@ -8,6 +8,7 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:-restaurant_dev_password}
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_ISSUER: http://localhost:8081/realms/restaurant-pos
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/restaurant-pos/protocol/openid-connect/certs
       APP_KEYCLOAK_CLIENT_SECRET: ${APP_KEYCLOAK_CLIENT_SECRET:-change-me}
     depends_on:
       postgres: {condition: service_healthy}

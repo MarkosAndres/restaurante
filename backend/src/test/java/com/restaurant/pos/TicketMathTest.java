@@ -1,1 +1,0 @@
-package com.restaurant.pos; import static org.junit.jupiter.api.Assertions.*; import org.junit.jupiter.api.Test; import java.math.*; class TicketMathTest { @Test void percentageTipUsesDecimalMoney(){var subtotal=new BigDecimal("140.00");assertEquals(new BigDecimal("21.00"),subtotal.multiply(new BigDecimal("15")).divide(new BigDecimal("100")));} }

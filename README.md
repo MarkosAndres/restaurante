@@ -1,10 +1,11 @@
 # Restaurant POS
 
-Restaurant point-of-sale for a Venezuelan menu, built with Angular 21, Spring Boot 3, PostgreSQL, Keycloak, and Podman Compose. Spanish (Mexico) is the default UI language; the language toggle persists the choice in `localStorage`.
+Restaurant point-of-sale for a Venezuelan menu, built with Angular 21, Spring Boot 4.0.8, Java 25, PostgreSQL, Keycloak, and Podman Compose. Spanish (Mexico) is the default UI language; the language toggle persists the choice in `localStorage`.
 
 ## Prerequisites
 
-- macOS with Podman Desktop (or Podman CLI), Java 21, Node 24+, and npm.
+- macOS with Podman Desktop (or Podman CLI), Java 25, Node 24+, and npm.
+- A Compose provider: install `podman-compose` or Docker Compose. `podman compose` delegates to one of these providers.
 - Start the Podman VM once with `podman machine start`.
 
 ## Run the complete application
@@ -17,6 +18,8 @@ cp .env.example .env
 Open http://localhost:8080. Keycloak is at http://localhost:8081. The imported administrator is `admin` / `admin123`; change it before production use. Stop with `./scripts/dev-down.sh`, inspect with `./scripts/dev-status.sh`, or delete database data with `./scripts/dev-reset.sh`.
 
 The Compose topology deliberately has exactly three services: `app`, `keycloak`, and `postgres`. PostgreSQL data is persistent in the `postgres-data` volume. Keycloak imports `infrastructure/keycloak/realm.json`, including `ADMIN`, `WAITER`, a PKCE browser client, and the initial administrator.
+
+If `podman compose` reports that no provider is available, install `podman-compose` (for example, `brew install podman-compose`) and rerun `./scripts/dev-up.sh`.
 
 ## Local development
 
@@ -49,12 +52,12 @@ Administrators can manage products through `/api/catalog` and employees through 
 
 ## Architecture
 
-- `backend/`: Spring REST resource server, JPA entities/repositories, Flyway migrations, ticket/shift business rules.
+- `backend/`: Spring REST resource server, JPA entities/repositories, Flyway migrations, ticket/shift business rules, and Groovy/Spock unit tests.
 - `frontend/`: Angular standalone components, reactive-ready form infrastructure, Bootstrap 5, Bootstrap Icons, SCSS, Keycloak JS adapter, mobile sidebar/navigation, and print CSS.
 - `infrastructure/keycloak/`: realm and client bootstrap.
 - `scripts/`: local lifecycle and verification commands.
 
-The Flyway migration seeds Empanadas, Arepas, Tequeños, Soda, Juice and sample products. Hibernate uses `ddl-auto=validate`; credentials are never stored in PostgreSQL.
+The Flyway migration seeds Empanadas, Arepas, Tequeños, Soda, Juice and sample products. Spring Boot 4 uses `spring-boot-starter-flyway` to activate migrations before Hibernate validates the schema. Hibernate uses `ddl-auto=validate`; credentials are never stored in PostgreSQL.
 
 ## Testing and troubleshooting
 
@@ -64,4 +67,6 @@ cd frontend && npm run build
 ./scripts/verify-local.sh
 ```
 
-If the app rejects a JWT, confirm `KEYCLOAK_ISSUER` is `http://localhost:8081/realms/restaurant-pos`; this external issuer must match what browser tokens contain. If ports are occupied, stop the conflicting local service. `podman compose logs -f app keycloak postgres` is the fastest diagnostic path. The Angular build can report the default initial-bundle budget warning because Bootstrap is global; it remains a successful build.
+Backend unit tests use Spock 2.4 with Groovy 5 on the JUnit Platform; place new specifications under `backend/src/test/groovy` and name them `*Spec.groovy`.
+
+If the app rejects a JWT, confirm `KEYCLOAK_ISSUER` is `http://localhost:8081/realms/restaurant-pos`; this external issuer must match what browser tokens contain. In containers, `KEYCLOAK_JWK_SET_URI` must use the internal service address (`http://keycloak:8080/.../certs`) so Spring can fetch signing keys while still validating the public issuer. If ports are occupied, stop the conflicting local service. `podman compose logs -f app keycloak postgres` is the fastest diagnostic path. The Angular build can report the default initial-bundle budget warning because Bootstrap is global; it remains a successful build.
