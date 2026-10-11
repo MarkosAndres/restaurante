@@ -1,0 +1,33 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.10'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-postgresql'
+    runtimeOnly 'org.postgresql:postgresql'
+    implementation 'org.keycloak:keycloak-admin-client:26.0.7'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:postgresql'
+}
+tasks.named('test') { useJUnitPlatform() }
+def frontendDir = file('../frontend')
+tasks.register('buildFrontend', Exec) {
+    // A login shell makes Node installed by nvm visible to the Gradle daemon on macOS.
+    onlyIf { frontendDir.exists() }; workingDir frontendDir; commandLine '/bin/zsh', '-lic', 'npm run build'
+    inputs.file file('../frontend/package.json'); inputs.dir file('../frontend/src'); outputs.dir file('../frontend/dist/frontend')
+}
+tasks.register('copyFrontend', Copy) { dependsOn 'buildFrontend'; from file('../frontend/dist/frontend/browser'); into layout.buildDirectory.dir('resources/main/static') }
+tasks.named('resolveMainClassName') { dependsOn 'copyFrontend' }
+tasks.named('compileTestJava') { dependsOn 'copyFrontend' }
+tasks.named('bootJar') { dependsOn 'copyFrontend' }

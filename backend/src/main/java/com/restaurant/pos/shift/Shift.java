@@ -1,0 +1,1 @@
+package com.restaurant.pos.shift; import jakarta.persistence.*; import java.math.*; import java.time.*; @Entity @Table(name="shifts") public class Shift { @Id @GeneratedValue(strategy=GenerationType.IDENTITY) public Long id; public String waiterId,waiterName,status; public Instant openedAt,closedAt; public BigDecimal openingCash,closingCash,expectedCash,cashDifference; }

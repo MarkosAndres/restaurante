@@ -1,0 +1,13 @@
+CREATE TABLE categories (id BIGSERIAL PRIMARY KEY, code VARCHAR(32) UNIQUE NOT NULL, name VARCHAR(80) NOT NULL);
+CREATE TABLE products (id BIGSERIAL PRIMARY KEY, category_id BIGINT NOT NULL REFERENCES categories(id), name VARCHAR(120) NOT NULL, description VARCHAR(500), price NUMERIC(12,2) NOT NULL CHECK(price >= 0), available BOOLEAN NOT NULL DEFAULT TRUE, version BIGINT NOT NULL DEFAULT 0);
+CREATE TABLE shifts (id BIGSERIAL PRIMARY KEY, waiter_id VARCHAR(64) NOT NULL, waiter_name VARCHAR(160) NOT NULL, opened_at TIMESTAMPTZ NOT NULL DEFAULT now(), closed_at TIMESTAMPTZ, opening_cash NUMERIC(12,2) NOT NULL, closing_cash NUMERIC(12,2), expected_cash NUMERIC(12,2), cash_difference NUMERIC(12,2), status VARCHAR(16) NOT NULL);
+CREATE UNIQUE INDEX one_open_shift_per_waiter ON shifts(waiter_id) WHERE status='OPEN';
+CREATE TABLE tickets (id BIGSERIAL PRIMARY KEY, ticket_number VARCHAR(32) UNIQUE NOT NULL, waiter_id VARCHAR(64) NOT NULL, waiter_name VARCHAR(160) NOT NULL, shift_id BIGINT NOT NULL REFERENCES shifts(id), table_number VARCHAR(20), subtotal NUMERIC(12,2) NOT NULL, tip_amount NUMERIC(12,2) NOT NULL DEFAULT 0, total NUMERIC(12,2) NOT NULL, status VARCHAR(16) NOT NULL DEFAULT 'OPEN', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), paid_at TIMESTAMPTZ);
+CREATE TABLE ticket_items (id BIGSERIAL PRIMARY KEY, ticket_id BIGINT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE, product_id BIGINT, name VARCHAR(120) NOT NULL, quantity INTEGER NOT NULL CHECK(quantity > 0), unit_price NUMERIC(12,2) NOT NULL, line_total NUMERIC(12,2) NOT NULL);
+CREATE TABLE ticket_payments (id BIGSERIAL PRIMARY KEY, ticket_id BIGINT NOT NULL REFERENCES tickets(id), shift_id BIGINT NOT NULL REFERENCES shifts(id), amount NUMERIC(12,2) NOT NULL, method VARCHAR(16) NOT NULL, idempotency_key VARCHAR(100) UNIQUE NOT NULL, paid_at TIMESTAMPTZ NOT NULL DEFAULT now());
+INSERT INTO categories(code,name) VALUES ('EMPANADAS','Empanadas'),('AREPAS','Arepas'),('TEQUENOS','Tequeños'),('SODA','Soda'),('JUICE','Juice');
+INSERT INTO products(category_id,name,description,price) SELECT id,'Empanada de carne','Carne sazonada',45.00 FROM categories WHERE code='EMPANADAS';
+INSERT INTO products(category_id,name,description,price) SELECT id,'Arepa reina pepiada','Pollo y aguacate',95.00 FROM categories WHERE code='AREPAS';
+INSERT INTO products(category_id,name,description,price) SELECT id,'Tequeños','Porción de cinco',85.00 FROM categories WHERE code='TEQUENOS';
+INSERT INTO products(category_id,name,description,price) SELECT id,'Refresco','355 ml',35.00 FROM categories WHERE code='SODA';
+INSERT INTO products(category_id,name,description,price) SELECT id,'Jugo natural','Naranja',45.00 FROM categories WHERE code='JUICE';

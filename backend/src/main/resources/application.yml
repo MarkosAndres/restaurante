@@ -1,0 +1,11 @@
+server: { port: 8080 }
+spring:
+  datasource: { url: ${DB_URL:jdbc:postgresql://localhost:5432/restaurant_pos}, username: ${DB_USER:restaurant}, password: ${DB_PASSWORD:restaurant_dev_password} }
+  jpa: { hibernate: { ddl-auto: validate }, open-in-view: false }
+  flyway: { enabled: true }
+  security:
+    oauth2:
+      resourceserver:
+        jwt: { issuer-uri: ${KEYCLOAK_ISSUER:http://localhost:8081/realms/restaurant-pos} }
+app:
+  keycloak: { server-url: ${KEYCLOAK_URL:http://localhost:8081}, realm: restaurant-pos, client-id: restaurant-admin, client-secret: ${APP_KEYCLOAK_CLIENT_SECRET:change-me} }
