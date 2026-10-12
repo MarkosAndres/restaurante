@@ -1,0 +1,6 @@
+# Settings used only when the application runs inside the Compose network.
+spring:
+  datasource:
+    url: "${DB_URL:jdbc:postgresql://postgres:5432/restaurant_pos}"
+    username: "${DB_USER:restaurant}"
+    password: "${DB_PASSWORD:restaurant_dev_password}"
