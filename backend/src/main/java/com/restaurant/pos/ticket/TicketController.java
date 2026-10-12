@@ -1,8 +1,195 @@
 package com.restaurant.pos.ticket;
-import com.restaurant.pos.catalog.*; import com.restaurant.pos.shift.*; import org.springframework.web.bind.annotation.*; import org.springframework.security.oauth2.jwt.Jwt; import org.springframework.jdbc.core.JdbcTemplate; import org.springframework.transaction.annotation.Transactional; import jakarta.validation.*; import jakarta.validation.constraints.*; import java.math.*; import java.time.*; import java.util.*;
-@RestController @RequestMapping("/api/tickets") public class TicketController { final TicketRepository tickets; final CatalogRepository products; final ShiftRepository shifts; final JdbcTemplate jdbc; TicketController(TicketRepository t,CatalogRepository p,ShiftRepository s,JdbcTemplate j){tickets=t;products=p;shifts=s;jdbc=j;} record Item(@NotNull Long productId,@Min(1) int quantity){} record Create(String tableNumber,@NotEmpty List<@Valid Item> items){} record Tip(String mode,BigDecimal value){} record Pay(@NotBlank String idempotencyKey){}
- private String uid(Jwt j){return j.getSubject();} private String uname(Jwt j){String n=j.getClaimAsString("name");return n==null?j.getClaimAsString("preferred_username"):n;} @GetMapping public List<Ticket> list(){return tickets.findAllByOrderByCreatedAtDesc();} @GetMapping("/{id}") public Map<String,Object> get(@PathVariable Long id){var t=tickets.findById(id).orElseThrow(()->new IllegalArgumentException("Ticket not found"));return Map.of("ticket",t,"items",jdbc.queryForList("select * from ticket_items where ticket_id=?",id));}
- @PostMapping @Transactional public Ticket create(@org.springframework.security.core.annotation.AuthenticationPrincipal Jwt j,@Valid @RequestBody Create r){var shift=shifts.findByWaiterIdAndStatus(uid(j),"OPEN").orElseThrow(()->new IllegalStateException("An active shift is required"));var t=new Ticket();t.ticketNumber="T-"+System.currentTimeMillis();t.waiterId=uid(j);t.waiterName=uname(j);t.shiftId=shift.id;t.tableNumber=r.tableNumber;t.status="OPEN";t.createdAt=Instant.now();t.subtotal=BigDecimal.ZERO; for(var i:r.items){var p=products.findById(i.productId).orElseThrow(()->new IllegalArgumentException("Product not found"));if(!p.available)throw new IllegalStateException("Product unavailable");var line=p.price.multiply(BigDecimal.valueOf(i.quantity));t.subtotal=t.subtotal.add(line); }t.tipAmount=BigDecimal.ZERO;t.total=t.subtotal;t=tickets.save(t);for(var i:r.items){var p=products.findById(i.productId).orElseThrow();var line=p.price.multiply(BigDecimal.valueOf(i.quantity));jdbc.update("insert into ticket_items(ticket_id,product_id,name,quantity,unit_price,line_total) values(?,?,?,?,?,?)",t.id,p.id,p.name,i.quantity,p.price,line);}return t;}
- @PutMapping("/{id}/tip") @Transactional public Ticket tip(@PathVariable Long id,@Valid @RequestBody Tip r){var t=open(id);BigDecimal value=r.value==null?BigDecimal.ZERO:r.value; t.tipAmount=switch(r.mode==null?"NONE":r.mode){case "PERCENT"->t.subtotal.multiply(value).divide(BigDecimal.valueOf(100));case "FIXED"->value;default->BigDecimal.ZERO;};if(t.tipAmount.signum()<0)throw new IllegalArgumentException("Tip cannot be negative");t.tipAmount=t.tipAmount.setScale(2,RoundingMode.HALF_UP);t.total=t.subtotal.add(t.tipAmount);return tickets.save(t);}
- @PostMapping("/{id}/payment/cash") @Transactional public Ticket pay(@PathVariable Long id,@Valid @RequestBody Pay r){var exists=jdbc.queryForObject("select count(*) from ticket_payments where idempotency_key=?",Integer.class,r.idempotencyKey);if(exists!=null&&exists>0)return tickets.findById(id).orElseThrow();var t=open(id);jdbc.update("insert into ticket_payments(ticket_id,shift_id,amount,method,idempotency_key) values(?,?,?,?,?)",t.id,t.shiftId,t.total,"CASH",r.idempotencyKey);t.status="PAID";t.paidAt=Instant.now();return tickets.save(t);} private Ticket open(Long id){var t=tickets.findById(id).orElseThrow(()->new IllegalArgumentException("Ticket not found"));if(!"OPEN".equals(t.status))throw new IllegalStateException("Only open tickets can be modified");return t;}
+
+import com.restaurant.pos.catalog.*;
+import com.restaurant.pos.shift.*;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
+import jakarta.validation.*;
+import jakarta.validation.constraints.*;
+
+import java.math.*;
+import java.time.*;
+import java.util.*;
+
+@RestController
+@RequestMapping("/api/tickets")
+public class TicketController
+{
+    final TicketRepository tickets;
+    final CatalogRepository products;
+    final ShiftRepository shifts;
+    final JdbcTemplate jdbc;
+
+    TicketController(
+            TicketRepository ticketRepository,
+            CatalogRepository catalogRepository,
+            ShiftRepository shiftRepository,
+            JdbcTemplate jdbcTemplate)
+    {
+        tickets = ticketRepository;
+        products = catalogRepository;
+        shifts = shiftRepository;
+        jdbc = jdbcTemplate;
+    }
+
+    private String uid(Jwt j)
+    {
+        return j.getSubject();
+    }
+
+    private String uname(Jwt j)
+    {
+        var name = j.getClaimAsString("name");
+        var preferredUsername = j.getClaimAsString("preferred_username");
+        return (name == null)
+                        ? preferredUsername
+                        : name;
+    }
+
+    @GetMapping
+    public List<Ticket> list()
+    {
+        return tickets.findAllByOrderByCreatedAtDesc();
+    }
+
+    @GetMapping("/{id}")
+    public Map<String, Object> get(@PathVariable Long id)
+    {
+        var ticket = tickets
+                .findById(id)
+                .orElseThrow(
+                        () -> new IllegalArgumentException("Ticket not found"));
+        return Map.of(
+                "ticket", ticket,
+                "items", jdbc.queryForList("select * from ticket_items where ticket_id=?", id));
+    }
+
+    @PostMapping
+    @Transactional
+    public Ticket create(
+            @AuthenticationPrincipal Jwt jsonWebToken,
+            @Valid @RequestBody Create createRequest)
+    {
+        var shift = shifts
+                .findByWaiterIdAndStatus(uid(jsonWebToken), "OPEN")
+                .orElseThrow(() -> new IllegalStateException("An active shift is required"));
+        var ticket = new Ticket();
+        ticket.ticketNumber = "T-" + System.currentTimeMillis();
+        ticket.waiterId = uid(jsonWebToken);
+        ticket.waiterName = uname(jsonWebToken);
+        ticket.shiftId = shift.id;
+        ticket.tableNumber = createRequest.tableNumber;
+        ticket.status = "OPEN";
+        ticket.createdAt = Instant.now();
+        ticket.subtotal = BigDecimal.ZERO;
+
+        for (var item : createRequest.items)
+        {
+            var product = products
+                    .findById(item.productId)
+                    .orElseThrow(
+                            () -> new IllegalArgumentException("Product not found"));
+            if (!product.available)
+                throw new IllegalStateException("Product unavailable");
+            var line = product.price.multiply(BigDecimal.valueOf(item.quantity));
+            ticket.subtotal = ticket.subtotal.add(line);
+        }
+
+        ticket.tipAmount = BigDecimal.ZERO;
+        ticket.total = ticket.subtotal;
+        ticket = tickets.save(ticket);
+
+        for (var item : createRequest.items)
+        {
+            var product = products
+                    .findById(item.productId)
+                    .orElseThrow();
+            var line = product.price.multiply(BigDecimal.valueOf(item.quantity));
+            jdbc.update(
+                    "insert into ticket_items(ticket_id,product_id,name,quantity,unit_price,line_total) values(?,?,?,?,?,?)",
+                    ticket.id,
+                    product.id,
+                    product.name,
+                    item.quantity,
+                    product.price,
+                    line);
+        }
+        return ticket;
+    }
+
+    @PutMapping("/{id}/tip")
+    @Transactional
+    public Ticket tip(
+            @PathVariable Long id,
+            @Valid @RequestBody Tip tipRequest)
+    {
+        var ticket = open(id);
+        BigDecimal value =
+                tipRequest.value() == null
+                        ? BigDecimal.ZERO
+                        : tipRequest.value();
+        ticket.tipAmount =
+                switch (tipRequest.mode() == null
+                            ? "NONE"
+                            : tipRequest.mode())
+                {
+                    case "PERCENT" -> ticket
+                            .subtotal
+                            .multiply(value)
+                            .divide(BigDecimal.valueOf(100));
+                    case "FIXED" -> value;
+                    default -> BigDecimal.ZERO;
+                };
+
+        if (ticket.tipAmount.signum() < 0)
+            throw new IllegalArgumentException("Tip cannot be negative");
+
+        ticket.tipAmount = ticket
+                .tipAmount
+                .setScale(2, RoundingMode.HALF_UP);
+        ticket.total = ticket.subtotal.add(ticket.tipAmount);
+        return tickets.save(ticket);
+    }
+
+    @PostMapping("/{id}/payment/cash")
+    @Transactional
+    public Ticket pay(@PathVariable Long id, @Valid @RequestBody Pay payRequest)
+    {
+        var exists = jdbc.queryForObject(
+                "select count(*) from ticket_payments where idempotency_key=?",
+                Integer.class,
+                payRequest.idempotencyKey);
+
+        if (exists != null && exists > 0)
+            return tickets.findById(id).orElseThrow();
+
+        var ticket = open(id);
+        jdbc.update(
+                "insert into ticket_payments(ticket_id,shift_id,amount,method,idempotency_key) values(?,?,?,?,?)",
+                ticket.id,
+                ticket.shiftId,
+                ticket.total,
+                "CASH",
+                payRequest.idempotencyKey);
+
+        ticket.status = "PAID";
+        ticket.paidAt = Instant.now();
+        return tickets.save(ticket);
+    }
+
+    private Ticket open(Long id)
+    {
+        var ticket = tickets
+                .findById(id)
+                .orElseThrow(
+                        () -> new IllegalArgumentException("Ticket not found"));
+
+        if (!"OPEN".equals(ticket.status))
+            throw new IllegalStateException("Only open tickets can be modified");
+
+        return ticket;
+    }
 }

@@ -1,1 +1,19 @@
-package com.restaurant.pos.catalog; import jakarta.persistence.*; @Entity @Table(name="categories") public class Category { @Id @GeneratedValue(strategy=GenerationType.IDENTITY) public Long id; public String code; public String name; }
+package com.restaurant.pos.catalog;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "categories")
+public class Category
+{
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    public Long id;
+
+    public String code;
+    public String name;
+}
