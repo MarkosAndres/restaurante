@@ -42,7 +42,7 @@ java -jar backend/build/libs/backend-1.0.0.jar
 ## Daily POS flow
 
 1. Sign in and open a shift, recording opening cash.
-2. Create a ticket from available catalog items. Prices are copied into ticket lines.
+2. Create a ticket from available catalog ticketItemRequests. Prices are copied into ticket lines.
 3. Set no tip, a percentage (10/15/20/custom via API), or fixed MXN via the API; Spring performs all monetary arithmetic with `BigDecimal`.
 4. Open the check route and print using the browser print dialog. Printing never records payment.
 5. Use cash payment once. An idempotency key prevents duplicate charges, records the payment, and closes the ticket.

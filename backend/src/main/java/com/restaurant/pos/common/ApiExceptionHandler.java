@@ -13,14 +13,20 @@ public class ApiExceptionHandler
     @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
     ResponseEntity<?> bad(RuntimeException exception)
     {
-        return ResponseEntity.badRequest().body(Map.of("message", exception.getMessage()));
+        return ResponseEntity
+                .badRequest()
+                .body(
+                        Map.of("message", exception.getMessage())
+                );
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<?> validation(MethodArgumentNotValidException exception)
     {
-        return ResponseEntity.badRequest().body(Map.of(
-                "message",
-                exception.getBindingResult().getAllErrors().getFirst().getDefaultMessage()));
+        return ResponseEntity
+                .badRequest()
+                .body(
+                        Map.of("message", exception.getBindingResult().getAllErrors().getFirst().getDefaultMessage())
+                );
     }
 }

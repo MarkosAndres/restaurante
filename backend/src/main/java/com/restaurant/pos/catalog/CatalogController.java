@@ -9,31 +9,26 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-
-import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/catalog")
 public class CatalogController
 {
-    private final CatalogRepository products;
-    private final CategoryRepository categories;
+    private final CatalogService catalogService;
+    private final CategoryService categoryService;
 
-    CatalogController(CatalogRepository catalogRepository,
-                      CategoryRepository categoryRepository)
+    CatalogController(CatalogService catalogService,
+                      CategoryService categoryService)
     {
-        products = catalogRepository;
-        categories = categoryRepository;
+        this.catalogService = catalogService;
+        this.categoryService = categoryService;
     }
 
     @GetMapping
     public List<ProductResponse> list()
     {
-        return products
+        return catalogService
                 .findAll()
                 .stream()
                 .map(ProductResponse::from)
@@ -43,8 +38,8 @@ public class CatalogController
     @GetMapping("/available")
     public List<ProductResponse> available()
     {
-        return products
-                .findByAvailableTrueOrderByName()
+        return catalogService
+                .findAvailable()
                 .stream()
                 .map(ProductResponse::from)
                 .toList();
@@ -64,11 +59,7 @@ public class CatalogController
             @PathVariable Long id,
             @Valid @RequestBody ProductRequest productRequest)
     {
-        var product = products
-                .findById(id)
-                .orElseThrow(
-                        () -> new IllegalArgumentException("Product not found")
-                );
+        var product = catalogService.findById(id);
         var productSaved = save(product, productRequest);
         return ProductResponse.from(productSaved);
     }
@@ -79,16 +70,13 @@ public class CatalogController
         product.description = productRequest.description();
         product.price = productRequest.price();
         product.available = productRequest.available();
-        product.category = categories
-                .findById(productRequest.categoryId())
-                .orElseThrow(
-                        () -> new IllegalArgumentException("Category not found"));
-        return products.save(product);
+        product.category = categoryService.findById(productRequest.categoryId());
+        return catalogService.save(product);
     }
 
     @GetMapping("/categories")
     public List<Category> cats()
     {
-        return categories.findAll();
+        return categoryService.findAll();
     }
 }

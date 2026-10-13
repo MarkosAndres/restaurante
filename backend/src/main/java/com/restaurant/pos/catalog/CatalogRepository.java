@@ -8,7 +8,3 @@ public interface CatalogRepository extends JpaRepository<Product, Long>
 {
     List<Product> findByAvailableTrueOrderByName();
 }
-
-interface CategoryRepository extends JpaRepository<Category, Long>
-{
-}

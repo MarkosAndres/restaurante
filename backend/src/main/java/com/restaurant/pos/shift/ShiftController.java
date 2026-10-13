@@ -1,8 +1,6 @@
 package com.restaurant.pos.shift;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotNull;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -68,7 +66,7 @@ public class ShiftController
         var shift = new Shift();
         shift.waiterId = id(jwt);
         shift.waiterName = name(jwt);
-        shift.openingCash = request.openingCash;
+        shift.openingCash = request.openingCash();
         shift.status = "OPEN";
         shift.openedAt = Instant.now();
         return shifts.save(shift);
@@ -97,8 +95,8 @@ public class ShiftController
         BigDecimal payments = jdbc.queryForObject(
                 "select coalesce(sum(amount),0) from ticket_payments where shift_id=?", BigDecimal.class, id);
         shift.expectedCash = shift.openingCash.add(payments);
-        shift.closingCash = request.closingCash;
-        shift.cashDifference = request.closingCash.subtract(shift.expectedCash);
+        shift.closingCash = request.closingCash();
+        shift.cashDifference = request.closingCash().subtract(shift.expectedCash);
         shift.closedAt = Instant.now();
         shift.status = "CLOSED";
         return shifts.save(shift);

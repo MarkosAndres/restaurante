@@ -5,12 +5,9 @@ import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 
-public final class CloseShiftRequest
+public record CloseShiftRequest(
+        @NotNull @DecimalMin("0") BigDecimal closingCash)
 {
-    @NotNull
-    @DecimalMin("0")
-    public final BigDecimal closingCash;
-
     public CloseShiftRequest(BigDecimal closingCash)
     {
         this.closingCash = closingCash;

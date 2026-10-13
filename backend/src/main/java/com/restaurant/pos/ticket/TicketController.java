@@ -8,7 +8,6 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.validation.*;
-import jakarta.validation.constraints.*;
 
 import java.math.*;
 import java.time.*;
@@ -71,7 +70,7 @@ public class TicketController
     @Transactional
     public Ticket create(
             @AuthenticationPrincipal Jwt jsonWebToken,
-            @Valid @RequestBody Create createRequest)
+            @Valid @RequestBody CreateTicketRequest createRequest)
     {
         var shift = shifts
                 .findByWaiterIdAndStatus(uid(jsonWebToken), "OPEN")
@@ -81,20 +80,20 @@ public class TicketController
         ticket.waiterId = uid(jsonWebToken);
         ticket.waiterName = uname(jsonWebToken);
         ticket.shiftId = shift.id;
-        ticket.tableNumber = createRequest.tableNumber;
+        ticket.tableNumber = createRequest.tableNumber();
         ticket.status = "OPEN";
         ticket.createdAt = Instant.now();
         ticket.subtotal = BigDecimal.ZERO;
 
-        for (var item : createRequest.items)
+        for (var item : createRequest.ticketItemRequests())
         {
             var product = products
-                    .findById(item.productId)
+                    .findById(item.productId())
                     .orElseThrow(
                             () -> new IllegalArgumentException("Product not found"));
             if (!product.available)
                 throw new IllegalStateException("Product unavailable");
-            var line = product.price.multiply(BigDecimal.valueOf(item.quantity));
+            var line = product.price.multiply(BigDecimal.valueOf(item.quantity()));
             ticket.subtotal = ticket.subtotal.add(line);
         }
 
@@ -102,18 +101,18 @@ public class TicketController
         ticket.total = ticket.subtotal;
         ticket = tickets.save(ticket);
 
-        for (var item : createRequest.items)
+        for (var item : createRequest.ticketItemRequests())
         {
             var product = products
-                    .findById(item.productId)
+                    .findById(item.productId())
                     .orElseThrow();
-            var line = product.price.multiply(BigDecimal.valueOf(item.quantity));
+            var line = product.price.multiply(BigDecimal.valueOf(item.quantity()));
             jdbc.update(
                     "insert into ticket_items(ticket_id,product_id,name,quantity,unit_price,line_total) values(?,?,?,?,?,?)",
                     ticket.id,
                     product.id,
                     product.name,
-                    item.quantity,
+                    item.quantity(),
                     product.price,
                     line);
         }
@@ -124,17 +123,17 @@ public class TicketController
     @Transactional
     public Ticket tip(
             @PathVariable Long id,
-            @Valid @RequestBody Tip tipRequest)
+            @Valid @RequestBody TicketTipRequest ticketTipRequestRequest)
     {
         var ticket = open(id);
         BigDecimal value =
-                tipRequest.value() == null
+                ticketTipRequestRequest.value() == null
                         ? BigDecimal.ZERO
-                        : tipRequest.value();
+                        : ticketTipRequestRequest.value();
         ticket.tipAmount =
-                switch (tipRequest.mode() == null
+                switch (ticketTipRequestRequest.mode() == null
                             ? "NONE"
-                            : tipRequest.mode())
+                            : ticketTipRequestRequest.mode())
                 {
                     case "PERCENT" -> ticket
                             .subtotal
@@ -156,12 +155,14 @@ public class TicketController
 
     @PostMapping("/{id}/payment/cash")
     @Transactional
-    public Ticket pay(@PathVariable Long id, @Valid @RequestBody Pay payRequest)
+    public Ticket pay(
+            @PathVariable Long id,
+            @Valid @RequestBody CashPaymentRequest cashPaymentRequest)
     {
         var exists = jdbc.queryForObject(
                 "select count(*) from ticket_payments where idempotency_key=?",
                 Integer.class,
-                payRequest.idempotencyKey);
+                cashPaymentRequest.idempotencyKey());
 
         if (exists != null && exists > 0)
             return tickets.findById(id).orElseThrow();
@@ -173,7 +174,7 @@ public class TicketController
                 ticket.shiftId,
                 ticket.total,
                 "CASH",
-                payRequest.idempotencyKey);
+                cashPaymentRequest.idempotencyKey());
 
         ticket.status = "PAID";
         ticket.paidAt = Instant.now();

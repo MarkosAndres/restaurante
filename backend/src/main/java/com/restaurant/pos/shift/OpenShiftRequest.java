@@ -5,12 +5,9 @@ import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 
-public final class OpenShiftRequest
+public record OpenShiftRequest(
+        @NotNull @DecimalMin("0") BigDecimal openingCash)
 {
-    @NotNull
-    @DecimalMin("0")
-    public final BigDecimal openingCash;
-
     public OpenShiftRequest(BigDecimal openingCash)
     {
         this.openingCash = openingCash;

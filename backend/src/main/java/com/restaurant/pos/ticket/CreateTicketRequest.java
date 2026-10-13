@@ -5,16 +5,15 @@ import jakarta.validation.constraints.NotEmpty;
 
 import java.util.List;
 
-final class Create
+record CreateTicketRequest(
+        String tableNumber,
+        @NotEmpty List<@Valid TicketItemRequest> ticketItemRequests)
 {
-    public final String tableNumber;
-
-    @NotEmpty
-    public final List<@Valid Item> items;
-
-    Create(String tableNumber, List<Item> items)
+    CreateTicketRequest(
+            String tableNumber,
+            List<TicketItemRequest> ticketItemRequests)
     {
         this.tableNumber = tableNumber;
-        this.items = items;
+        this.ticketItemRequests = ticketItemRequests;
     }
 }

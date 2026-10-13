@@ -34,14 +34,17 @@ public class SecurityConfig
                         .permitAll()
                         .anyRequest()
                         .authenticated())
-                .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(converter())))
+                .oauth2ResourceServer(
+                        oauth2 ->
+                                oauth2
+                                    .jwt(jwt -> jwt.jwtAuthenticationConverter(converter())))
                 .build();
     }
 
     private Converter<Jwt, JwtAuthenticationToken> converter()
     {
-        return jwt -> {
+        return jwt ->
+        {
             var roles = new ArrayList<SimpleGrantedAuthority>();
             Object realm = jwt.getClaim("realm_access");
 
@@ -49,7 +52,8 @@ public class SecurityConfig
                     && map.get("roles") instanceof Collection<?> roleNames)
             {
                 roleNames.forEach(role -> roles.add(
-                        new SimpleGrantedAuthority("ROLE_" + role)));
+                        new SimpleGrantedAuthority("ROLE_" + role))
+                );
             }
 
             return new JwtAuthenticationToken(
